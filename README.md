@@ -9,7 +9,7 @@ This exercise demonstrates modernizing a Python project using `uv` for project s
 ## Project Structure
 
 - **`order-matching-engine/`** - Original code from the upstream repository
-- **`order-matching-engine-new/`** - Revamped version with:
+- **`order-matching-engine-new/`** - Reference version for the revamped version of following updates:
     - `uv`-based project setup (pyproject.toml, uv.lock)
     - Removal of global variables
     - Improved code structure and maintainability
@@ -28,7 +28,4 @@ The revamped version includes:
 2. Set up the project using `uv` for dependency management.
 3. Add packages to the project using `uv add <package-name>`.
 4. Refactor the code to remove global variables and improve structure.
-
-## Reference
-
-1. order-matching-engine-new
+5. Use `uv run ...` to start the program and incude the screenshot of the program and the terminal window in the submission of your assignment. Do not share the code.
