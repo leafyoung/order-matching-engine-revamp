@@ -1,77 +1,121 @@
-# Order-matching-engine
+# Order Matching Engine
 
 ## Introduction
 
-The function of this program is to simulate trading activity and order matching processed by electronic exchanges of financial instruments. The software used for this purpose is referred to as an _order matching engine_. Buyers and sellers of some instrument come to market and place _bids_ and _asks_, which are orders that represent the intent to buy or sell a certain quantity of an asset at a definite price. These orders are added to either side of the _order book_, which is essentially a list of all unmatched orders placed. The contents of the list - whether it contains bids or asks - determines its _side_. The engine matches orders according to an algorithm. After two (or more) orders are matched, they are said to have been _filled_. The engine works to continue order matching until no orders are left in the book satisfying certain parameters.
+This program simulates how electronic exchanges match buy and sell orders for financial instruments. This software is called an **order matching engine**.
+
+### Key Concepts
+
+**Orders:** Buyers place **bids** (offers to buy) and sellers place **asks** (offers to sell). Each order specifies:
+
+- Quantity: how much of the asset to trade
+- Price: the price per unit
+- Type: market order (execute immediately) or limit order (execute only at a specified price or better)
+
+**Order Book:** All unmatched orders are stored in the **order book**. The book has two sides:
+
+- Buy side: contains all bid orders
+- Sell side: contains all ask orders
+
+**Matching:** The engine matches compatible buy and sell orders. When orders are matched, they are **filled** (executed). The engine continues matching until no more compatible orders remain in the book.
 
 ## Algorithm
 
-The two most common algorithms used for order matching are known as price/time priority (also called _First In First Out_ or _FIFO_) and pro-rata, both of which have various strengths and weaknesses. This program implements the price/time priority algorithm. One benefit of price/time priority is that it motivates market participants to narrow the _spread_, which is the difference between the best quote on either side of the book. A weakness of price/time priority is that it can be more computationally demanding than pro-rata.
+This program uses **price/time priority** (also called **FIFO** - First In, First Out) matching.
 
-## Control flow
+### How It Works
+
+Orders are matched based on two rules:
+
+1. **Price priority:** Orders with better prices are matched first
+   - For buyers: higher bid prices are better
+   - For sellers: lower ask prices are better
+2. **Time priority:** At the same price, earlier orders are matched first
+
+### Why This Algorithm?
+
+**Advantage:** Encourages traders to narrow the **spread** (the difference between the best bid and best ask), making markets more efficient.
+
+**Trade-off:** More computationally intensive than alternatives like pro-rata matching, but simpler to understand and implement.
+
+## Control Flow
 
 ### Overview
 
 The control flow of the program is detailed by the flowchart shown below. At runtime, `main()` initialises many of the data structures used by the rest of the application. An order is generated and passed to one side of the order book. If the order book is not empty, `match()` is called. It selects the best quote on either side of the book and consummates a trade if each order satisfies a certain price.
 
-<p align="center">
-  <img src="https://i.imgur.com/rELEZrD.png" width="500">
-  </p>
+![Program control flow](https://i.imgur.com/rELEZrD.png)
 
-### Order generation and sampling
+### Order Generation and Sampling
 
-In order to create dummy data for the `match()` function to process, and to simulate the activity of buyers and sellers on the market, orders are generated according to certain parameters. These parameters determine all the characteristics of the order, including their quantity and type (market or limit). The price of the order is determined by taking samples from a normal distribution. This is a relatively trivial process thanks to the `random.normalvariate()` method.
+To create test data for the `match()` function and simulate market activity, the program generates orders based on certain parameters. These parameters determine the order's characteristics:
 
-### Update book
+- **Quantity:** How many units to trade
+- **Type:** Market or limit order
 
-Once an order has been generated, it is added to one side of the book. It’s side is dependent on whether it is a buy or sell order, and its position in the book is determined by its price and type.
+The price is determined by sampling from a normal distribution using Python's `random.normalvariate()` method.
+
+### Update Book
+
+Once an order is generated, the program adds it to the appropriate side of the book. The order's side depends on whether it is a buy or sell order, and its position in the book is determined by its price and order type.
 
 ### Match
 
-The `match()` function evaluates two best quotes, one from either side of the book, and evaluates them to determine if they satisfy each other’s price parameters. If a trade can be consummated, a _tx_ (transaction) is created, and the appropriate quantity or order is removed from the book. The transaction is passed to the fill book, which is a record of all filled orders.
+The `match()` function evaluates the best quotes from both sides of the book to determine if they satisfy each other's price constraints. If a trade can be executed, a **transaction** is created and the appropriate quantity is removed from the book. The transaction is recorded in the fill book, which keeps track of all filled orders.
 
-### Update cache
+### Update Cache
 
-Each list used by the program (`buy_book`, `sell_book`, and `fill_book`) is associated with a _cache_. The buy and sell caches are populated by aggregating all orders at a given price and representing them with a single record. The fill cache represents a short list of the most recently filled orders. These caches are passed to the `draw_book` method.
+Each list used by the program (`buy_book`, `sell_book`, and `fill_book`) has an associated **cache**:
+
+- **Buy and sell caches:** Aggregate all orders at the same price into a single record
+- **Fill cache:** Shows the most recently filled orders
+
+These caches are passed to the `draw_book` method for display.
 
 ### Update GUI
 
-The contents of the caches listed above are inserted into a `Treeview`, which is a structure used by the `Tkinter` GUI module for displaying tabular data. The image below shows the output. It contains three tables which display the bids, offers and filled orders.
+The cache contents are displayed using a `Treeview` widget from the `Tkinter` GUI module, which shows tabular data. The interface contains three tables displaying bids, offers, and filled orders.
 
-<p align="center">
-  <img src="https://i.imgur.com/N3SEd82.png" width="650">
-  </p>
+![GUI output showing order books](https://i.imgur.com/N3SEd82.png)
 
 ## Challenges
 
-### Concurrency and multiprocessing
+### Concurrency and Multiprocessing
 
-The original architecture of this program used a model based on concurrency through multiprocessing pools. Due to various bugs in this version, the decision was made to opt for a single-threaded model without multiprocessing. Below is a flowchart that illustrates the control flow of the original program.
+The original architecture used multiprocessing pools for concurrency. Due to various bugs in that approach, the program now uses a simpler single-threaded model. The flowchart below illustrates the control flow of the original multiprocessing design.
 
-<p align="center">
-  <img src="https://i.imgur.com/8LWFVen.png" width="650">
-  </p>
+![Original multiprocessing architecture flow](https://i.imgur.com/8LWFVen.png)
 
-## Future developments
+## Future Improvements
 
-This section details parts of the program that could be improved in a subsequent release and features that could be added.
+This section outlines potential enhancements for future versions.
 
-### Depth chart
+### Depth Chart
 
-According to [this](https://intercom.help/sfox-trading/en/articles/3864391-how-does-a-depth-chart-work):
+A **depth chart** visualizes the quantity of buy and sell orders at different price levels. According to trading terminology:
 
-> Depth refers to the ability of a market for a specific asset to sustain large orders of that asset without the asset’s price moving significantly.
+> Depth refers to the market's ability to sustain large orders without significantly moving the asset's price.
 
-A depth chart is a graphical representation of the quantity of buy and sell orders at certain prices. A depth chart could be derived from the order book and represented in the GUI on another pane.
+A depth chart could be derived from the order book and displayed in the GUI.
 
-### Order generation chart
+### Order Generation Visualization
 
-Another chart could display the process of order price determination. This would be represented by a graph with an outline of a normal distribution and an arrow or line representing the sampling of the distribution each time an order was generated.
+Another useful feature would be a chart showing how order prices are determined. This would display a normal distribution curve with markers indicating where each order's price was sampled from the distribution.
 
-### Price action simulation
+### Price Action Simulation
 
-One improvement of the current program would be a more advanced order generation process, which more accurately simulated real life price action. One way of doing this is to periodically shift the mean around which the distribution is centered. Another way is to forcibly create a disequilibrium between the volume of orders above the market price and those below. This would lead to ‘pressure’ from one side of the market or the order, replicating bullish or bearish price action. These improvements are somewhat subordinate, as the function of the program is not to accurately represent market price action, but to match orders and remove them from the book.
+A more advanced order generation process could better simulate real-world price movements:
 
-### Update: Order book data structure
+- Periodically shifting the mean of the distribution
+- Creating imbalance between buy and sell order volumes to simulate market "pressure"
 
-Since completing this project I have expanded my knowledge of data structures and algorithms and reflected on the structure of this program. It has occurred to me that the manner in which orders are stored as well as deleted from and inserted into the book is quite inefficient. A potential solution would be to re-implement the order book using a min heap and a max heap (along with their insertion and deletion methods). It would seem that these data structures are much better suited to the problem. A future update to this program would include this modification.
+These changes would demonstrate bullish or bearish price action, though this is secondary to the program's main purpose of matching orders.
+
+### Order Book Data Structure
+
+After completing this project, it became clear that the current approach to storing and managing orders in the book is inefficient. A better solution would use:
+
+- **Min heap** for sell orders (to quickly find the lowest ask)
+- **Max heap** for buy orders (to quickly find the highest bid)
+
+These data structures are much better suited for this problem and would significantly improve performance.
