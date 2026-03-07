@@ -46,6 +46,7 @@ For your assignment submission:
 
 - Include a screenshot of the running program
 - Include a screenshot of your terminal showing the successful run
+- Include your pyproject.toml
 - Briefly describe the changes you made to improve the code organization
 
 Note: Share your learning experience and improvements, but do not share the actual code implementation.
