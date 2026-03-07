@@ -45,7 +45,7 @@ Follow these steps to complete the exercise:
 For your assignment submission:
 
 - Include a screenshot of the running program
-- Include a screenshot of your terminal showing the successful run
+- Include a screenshot of your terminal showing the launching command line
 - Include your pyproject.toml
 - Briefly describe the changes you made to improve the code organization
 
