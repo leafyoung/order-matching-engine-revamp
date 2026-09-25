@@ -17,17 +17,12 @@ class Order:
         self.bid = bid
         self.ask = ask
 
-    # Defines a method for comparing quotes in the book
+    # Defines a method for comparing quotes in the book.
+    # Strictly better only: an order at an equal price is NOT better, so it queues behind (time priority).
     def better_than(self, other):
         if self.bid:
-            if self.price > other.price:
-                return True
-            return False
-
-        if self.ask:
-            if self.price > other.price:
-                return False
-            return True
+            return self.price > other.price
+        return self.price < other.price
 
     def __repr__(self):
         return f"Bid: {self.bid} Ask: {self.ask}"
@@ -99,14 +94,14 @@ class Window:
         self.fills_frame.grid(row=1, column=0, columnspan=2, sticky="nsew", padx=5, pady=5)
 
     def draw_book(self, cache):  # refactoring opportunity
-        if cache == self.buy_cache:
+        if cache is self.buy_cache:
             tree = self.bid_tree
-        elif cache == self.sell_cache:
+        elif cache is self.sell_cache:
             tree = self.ask_tree
-        elif cache == self.fill_cache:
+        elif cache is self.fill_cache:
             tree = self.fill_tree
 
-        if tree == self.bid_tree or tree == self.ask_tree:
+        if tree is self.bid_tree or tree is self.ask_tree:
             tree.delete(*tree.get_children())
             i = 0
             iid = 0
@@ -147,16 +142,16 @@ class Window:
                 iid = iid + 1
 
     def update_cache(self, book):
-        if book == self.fill_book:
+        if book is self.fill_book:
             cache = self.fill_cache
-        elif book == self.buy_book:
+        elif book is self.buy_book:
             cache = self.buy_cache
-        elif book == self.sell_book:
+        elif book is self.sell_book:
             cache = self.sell_cache
 
         cache.clear()
 
-        if cache == self.fill_cache:
+        if cache is self.fill_cache:
             if len(self.fill_book) < self.cache_length:
                 for x in range(len(self.fill_book)):
                     self.fill_cache.append(self.fill_book[x])
@@ -165,7 +160,7 @@ class Window:
                 for x in range(self.cache_length):
                     self.fill_cache.append(self.fill_book[x])
 
-        elif cache == self.buy_cache or cache == self.sell_cache:
+        elif cache is self.buy_cache or cache is self.sell_cache:
             empty_list = [None] * 10
             cache.extend(empty_list)
 
@@ -187,15 +182,17 @@ class Window:
                 cache[index] = cache_order
 
                 for order in book:
-                    if book == self.sell_book:
+                    if book is self.sell_book:
                         if order.price > current_price:
                             current_price = order.price
                             break
 
-                    elif book == self.buy_book:
+                    elif book is self.buy_book:
                         if order.price < current_price:
                             current_price = order.price
                             break
+                else:
+                    break  # no further price level
 
                 quantity = 0
                 index = index + 1
@@ -203,40 +200,22 @@ class Window:
         self.draw_book(cache)
 
     def add_to_book(self, order):
-        same = []
-        opp = []
+        """Match an incoming order, then rest what is left of a limit order.
 
+        A market order trades against the opposite side until it is filled or that side is
+        empty; any unfilled remainder is cancelled, so market orders never rest in the book.
+        """
         if order.bid:
             same = self.buy_book
             opp = self.sell_book
-
-        elif order.ask:
+        else:
             same = self.sell_book
             opp = self.buy_book
 
-        if order.limit:
-            if len(same) == 0:
-                same.append(order)
-            else:
-                self.insert_order(order, same)
+        self.match(order, opp)
 
-        if order.market:
-            if len(opp) != 0:
-                order.price = opp[0].price
-
-                if len(same) == 0:
-                    same.append(order)
-                else:
-                    self.insert_order(order, same)
-
-            else:
-                if len(same) != 0:
-                    order.price = same[0].price
-                    self.insert_order(order, same)
-
-                else:
-                    order.price = self.eq_price
-                same.append(order)
+        if order.limit and order.quantity > 0:
+            self.insert_order(order, same)
 
     def generate_order(self):
         timestamp = datetime.datetime.now().strftime("%H:%M:%S %d-%m-%Y")
@@ -248,12 +227,13 @@ class Window:
         if random_type < 8:
             market = True
             limit = False
-            price = None
         else:
             market = False
             limit = True
 
-        price, bid, ask = self.sample()
+        price, bid, ask = self.sample()  # the sampled price also decides the side
+        if market:
+            price = None  # a market order has no price; it trades at the resting orders' prices
 
         order = Order(timestamp, order_id, quantity, market, limit, price, bid, ask)
         self.add_to_book(order)
@@ -297,27 +277,15 @@ class Window:
         return price, bid, ask
 
     def insert_order(self, order, book):
-        if order.bid:
-            book = self.buy_book
-        elif order.ask:
-            book = self.sell_book
-
-        if Order.better_than(order, book[0]):
-            book.insert(0, order)
-
-        elif not Order.better_than(order, book[len(book) - 1]):
-            book.append(order)
-
-        else:
-            for entry in book:
-                if Order.better_than(order, entry):
-                    insert_point = book.index(entry) - 1
-                    book.insert(insert_point, order)
-                    break
+        # Book is kept best price first, oldest first within a price level.
+        for index, entry in enumerate(book):
+            if order.better_than(entry):
+                book.insert(index, order)
+                return
+        book.append(order)
 
     def add_to_fills(self, tx):
         self.fill_book.insert(0, tx)
-        self.update_cache(self.fill_book)
 
     def create_tx(self, bid, ask, price, quantity):
         date = datetime.datetime.now().strftime("%d-%m-%Y")
@@ -339,78 +307,48 @@ class Window:
 
         self.add_to_fills(tx)
 
-    def remove_from_book(self, order):
-        book = []
+    def crosses(self, order, resting):
+        if order.market:
+            return True
         if order.bid:
-            book = self.buy_book
-        elif order.ask:
-            book = self.sell_book
+            return order.price >= resting.price
+        return order.price <= resting.price
 
-        for entry in book:
-            if entry.order_id == order.order_id:
-                discard = entry
-                break
+    def match(self, order, opp):
+        # Trade the incoming order against the best resting orders while the prices cross.
+        # Each trade is at the resting order's price; a partly filled resting order keeps its place.
+        while order.quantity > 0 and len(opp) > 0 and self.crosses(order, opp[0]):
+            resting = opp[0]
+            quantity = min(order.quantity, resting.quantity)
 
-        book.remove(discard)
-        self.update_cache(book)
+            if order.bid:
+                self.create_tx(order, resting, resting.price, quantity)
+            else:
+                self.create_tx(resting, order, resting.price, quantity)
 
-    def reduce_quantity(self, order, quantity):
-        book = []
-        if order.bid:
-            book = self.buy_book
-        elif order.ask:
-            book = self.sell_book
+            order.quantity = order.quantity - quantity
+            resting.quantity = resting.quantity - quantity
+            if resting.quantity == 0:
+                opp.pop(0)
 
-        for entry in book:
-            if entry.order_id == order.order_id:
-                entry.quantity = entry.quantity - quantity
-                break
+    def step(self):
+        self.generate_order()
 
-        self.update_cache(book)
+        self.update_cache(self.buy_book)
+        self.update_cache(self.sell_book)
+        self.update_cache(self.fill_book)
 
-    def match(self):
-        top_bid = self.buy_book[0]
-        top_ask = self.sell_book[0]
-        tx_price = top_ask.price
-        tx_quantity = None
+        self.window.after(100, self.step)
 
-        if top_bid.quantity < top_ask.quantity:
-            tx_quantity = top_bid.quantity
-        else:
-            tx_quantity = top_ask.quantity
-
-        if top_bid.price < top_ask.price:
-            pass
-
-        elif top_bid.price == top_ask.price:
-            self.create_tx(top_bid, top_ask, tx_price, tx_quantity)  # TODO
-
-            if top_bid.quantity < top_ask.quantity:
-                self.remove_from_book(top_bid)
-                self.reduce_quantity(top_ask, top_bid.quantity)
-
-            elif top_bid.quantity == top_ask.quantity:
-                self.remove_from_book(top_bid)
-                self.remove_from_book(top_ask)
-
-            elif top_bid.quantity > top_ask.quantity:
-                self.remove_from_book(top_ask)
-                self.reduce_quantity(top_bid, top_ask.quantity)
+    def run(self):
+        # after() + mainloop() instead of "while True: update()": mainloop returns when the window is closed
+        self.window.after(100, self.step)
+        self.window.mainloop()
 
 
 def main():
     window = Window()
-
-    run = True
-
-    while run:
-        window.generate_order()
-
-        if len(window.buy_book) > 0 and len(window.sell_book) > 0:
-            window.match()
-
-        window.window.update_idletasks()
-        window.window.update()
+    window.run()
 
 
 if __name__ == "__main__":

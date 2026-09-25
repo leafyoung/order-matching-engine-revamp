@@ -73,16 +73,16 @@ class OrderBookWindow:
         self.fills_frame.grid(row=1, column=0, columnspan=2, sticky="nsew", padx=5, pady=5)
 
     def draw_book(self, cache: list[dict[str, Any] | None]) -> None:
-        if cache == self.buy_cache:
+        if cache is self.buy_cache:
             tree = self.bid_tree
-        elif cache == self.sell_cache:
+        elif cache is self.sell_cache:
             tree = self.ask_tree
-        elif cache == self.fill_cache:
+        elif cache is self.fill_cache:
             tree = self.fill_tree
         else:
             return
 
-        if tree == self.bid_tree or tree == self.ask_tree:
+        if tree is self.bid_tree or tree is self.ask_tree:
             tree.delete(*tree.get_children())
 
             if len(cache) == 0:
@@ -123,23 +123,23 @@ class OrderBookWindow:
 
     def update_cache(self, book: list) -> None:
 
-        if book == self.engine.fill_book:
+        if book is self.engine.fill_book:
             cache = self.fill_cache
-        elif book == self.engine.buy_book:
+        elif book is self.engine.buy_book:
             cache = self.buy_cache
-        elif book == self.engine.sell_book:
+        elif book is self.engine.sell_book:
             cache = self.sell_cache
         else:
             return
 
         cache.clear()
 
-        if cache == self.fill_cache:
+        if cache is self.fill_cache:
             if len(self.engine.fill_book) < self.cache_length:
                 cache.extend(self.engine.fill_book)
             else:
                 cache.extend(self.engine.fill_book[: self.cache_length])
-        elif cache == self.buy_cache or cache == self.sell_cache:
+        elif cache is self.buy_cache or cache is self.sell_cache:
             empty_list = [None] * 10
             cache.extend(empty_list)
 
@@ -163,14 +163,16 @@ class OrderBookWindow:
                 cache[index] = cache_order
 
                 for order in book:
-                    if book == self.engine.sell_book:
+                    if book is self.engine.sell_book:
                         if order.price and order.price > current_price:
                             current_price = order.price
                             break
-                    elif book == self.engine.buy_book:
+                    elif book is self.engine.buy_book:
                         if order.price and order.price < current_price:
                             current_price = order.price
                             break
+                else:
+                    break  # no further price level
 
                 quantity = 0
                 index = index + 1
@@ -182,10 +184,7 @@ class OrderBookWindow:
         self.window.mainloop()
 
     def _update_loop(self) -> None:
-        self.engine.generate_order()
-
-        if len(self.engine.buy_book) > 0 and len(self.engine.sell_book) > 0:
-            self.engine.match()
+        self.engine.generate_order()  # add_to_book() matches the new order immediately
 
         self.update_cache(self.engine.buy_book)
         self.update_cache(self.engine.sell_book)

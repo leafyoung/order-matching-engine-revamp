@@ -18,3 +18,8 @@ packages = ["src/order_matching_engine"]
 
 [tool.hatch.build.sources]
 "src/order_matching_engine" = "order_matching_engine"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]

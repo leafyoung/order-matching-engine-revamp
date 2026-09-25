@@ -15,15 +15,10 @@ class Order:
     id_counter: int = 1
 
     def better_than(self, other: "Order") -> bool:
+        """Strictly better price. An equal price is not better, so the newer order queues behind."""
         if self.bid:
-            return self.price > other.price if self.price and other.price else False
-
-        if self.ask:
-            return (
-                not (self.price > other.price) if self.price and other.price else True
-            )
-
-        return False
+            return self.price > other.price
+        return self.price < other.price
 
     def __repr__(self) -> str:
         return f"Bid: {self.bid} Ask: {self.ask}"
